@@ -100,6 +100,7 @@ button { cursor:pointer; }
 <button onclick="exportExcel()">Excel出力</button>
 
 <script>
+loadData();
 let data = JSON.parse(localStorage.getItem("kaikei"))||[];
 let subjects = JSON.parse(localStorage.getItem("subjects"))||[];
 let startCash = Number(localStorage.getItem("startCash")||0);
@@ -128,7 +129,9 @@ function save(){
     note:document.getElementById("note").value
   });
   data.sort((a,b)=>a.date.localeCompare(b.date));
-  localStorage.setItem("kaikei", JSON.stringify(data));
+  const jsonData = JSON.stringify(data);
+  localStorage.setItem("kaikei", jsonData);
+  saveData();
   updateFilters();
   render();
 }
@@ -136,10 +139,38 @@ function save(){
 function del(i){
   if(confirm("削除しますか？")){
     data.splice(i,1);
-    localStorage.setItem("kaikei", JSON.stringify(data));
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem("kaikei", jsonData);
+    saveData();
     updateFilters();
     render();
   }
+}
+
+async function saveData() {
+  const data = {
+    kaikei: localStorage.getItem("kaikei"),
+    subjects: localStorage.getItem("subjects"),
+    startCash: localStorage.getItem("startCash"),
+    startBank: localStorage.getItem("startBank"),
+  }
+  await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + localStorage.getItem("password"), {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+async function loadData() {
+  const jsonData = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + localStorage.getItem("password"), {
+    method: "GET",
+  });
+
+  const data = JSON.parse(jsonData);
+
+  localStorage.setItem("kaikei", data.kaikei);
+  localStorage.setItem("subjects", data.subjects);
+  localStorage.setItem("startCash", data.startCash);
+  localStorage.setItem("startBank", data.startBank);
 }
 
 function edit(i){
@@ -343,3 +374,4 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
+
