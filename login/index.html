@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <title>ログイン</title>
+
+    <!-- CSSの読み込み -->
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      function onClickLogin(e) {
+        const pass = document.getElementById("pass").value;
+        if (!pass) alert("パスワードが入力されていません。")
+
+        localStorage.setItem("password", pass);
+
+        window.location.href = "/";
+      }
+    </script>
+  </head>
+  <body>
+    <input type="password" id="pass" placeholder="パスワード" />
+    <input type="submit" value="ログイン" onclick="onClickLogin()" />
+  </body>
+</html>
