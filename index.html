@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <title>学生団体 会計ソフト</title>
+
+    <!-- Excel出力のJSライブラリの読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="./main.js"></script>
+
+    <!-- CSSの読み込み -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="filter-panel">
+      <h2>表示フィルタ</h2>
+      <label for="yearFilter">年度: </label>
+      <select id="yearFilter">
+        <option value="">すべて</option>
+      </select>
+
+      <label for="monthFilter">月: </label>
+      <select id="monthFilter">
+        <option value="">すべて</option>
+        <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option><option value="4">4月</option>
+        <option value="5">5月</option><option value="6">6月</option>
+        <option value="7">7月</option><option value="8">8月</option>
+        <option value="9">9月</option><option value="10">10月</option>
+        <option value="11">11月</option><option value="12">12月</option>
+      </select>
+
+      <label for="subjectFilter">科目: </label>
+      <select id="subjectFilter">
+        <option value="">すべて</option>
+      </select>
+
+      <button onclick="render()">再表示</button>
+    </div>
+
+    <div id="kaikei-panel">
+      <h1>会計入力</h1>
+
+      <!-- 繰越金の入力フォーム -->
+      <div id="carryArea">
+        <h3>繰越金 (初回のみ入力)</h3>
+        <label for="startCash">現金</label>
+        <input type="number" id="startCash" value="0" />
+        
+        <label for="startBank">通帳</label>
+        <input type="number" id="startBank" value="0" />
+        
+        <button onclick="setStart()">設定</button>
+      </div>
+
+      <hr>
+
+      <!-- 入力フォーム -->
+      <div id="entry">
+        <label for="date">日付: </label>
+        <input type="date" id="date" />
+        
+        <label for="subject">科目: </label>
+        <select id="subject"></select>
+
+        <label for="account">口座: </label>
+        <select id="account">
+          <option value="現金">現金</option>
+          <option value="通帳">通帳</option>
+        </select>
+
+        <label for="content">内容: </label>
+        <input type="text" id="content" placeholder="内容" />
+
+        <label for="type">区分: </label>
+        <select id="type">
+          <option value="収入">収入</option>
+          <option value="支出">支出</option>
+          <option value="振替">振替</option>
+        </select>
+
+        <label for="amount">金額: </label>
+        <input type="number" id="amount" placeholder="1000 (金額)" />
+
+        <label for="note">備考: </label>
+        <input type="text" id="note" placeholder="備考" />
+
+        <button onclick="save()">追加</button>
+        
+        <br>
+        <button onclick="addSubject()">科目を作成する</button>
+      </div>
+    </div>
+
+    <!-- 残高表示 -->
+    <div id="balance-panel">
+      <h2>残高</h2>
+      現金: <span id="cashBal">0</span> / 通帳: <span id="bankBal">0</span>
+    </div>
+
+    <div id="cashbook-panel">
+      <h2>出納帳</h2>
+      <table>
+        <thead>
+          <tr>
+          <th>日付</th>
+          <th>科目</th>
+          <th>内容</th>
+          <th>現金収入</th>
+          <th>現金支出</th>
+          <th>現金残高</th>
+          <th>通帳収入</th>
+          <th>通帳支出</th>
+          <th>通帳残高</th>
+          <th>備考</th>
+          <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="list"></tbody>
+      </table>
+    </div>
+
+    <br>
+    
+    <button onclick="exportExcel()">Excel出力</button>
+
+    <script>
+      // 初期化
+      main();
+    </script>
+  </body>
+</html>
+

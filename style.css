@@ -1,0 +1,54 @@
+body {
+    font-family: sans-serif;
+    margin: 20px;
+    background: #f9f9f9;
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+label {
+    display: inline-block;
+    /* margin: 5px 10px 5px 0; */
+}
+
+input, select, button {
+    padding: 5px;
+    margin: 2px;
+    margin-left: 0;
+    margin-right: 10px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 10px;
+    background: #fff;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: center;
+}
+
+th {
+    background: #eee;
+    font-weight: bold;
+}
+
+button {
+    cursor: pointer;
+}
+
+#carryArea {
+    background: #fff3cd;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ffeeba;
+}
+
+#filter-panel {
+    margin-bottom: 10px;
+}
