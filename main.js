@@ -33,8 +33,8 @@ async function loadData() {
         // 有効な値のみ上書きしてローカルの空データ上書きを防止
         if (obj && typeof obj.kaikei === 'string') localStorage.setItem("kaikei", obj.kaikei);
         if (obj && typeof obj.subjects === 'string') localStorage.setItem("subjects", obj.subjects);
-        if (obj && obj.startCash !== undefined && obj.startCash !== null) localStorage.setItem("startCash", obj.startCash);
-        if (obj && obj.startBank !== undefined && obj.startBank !== null) localStorage.setItem("startBank", obj.startBank);
+        if (obj && obj.startCash !== undefined && obj.startCash !== null) localStorage.setItem("startCash", String(obj.startCash));
+        if (obj && obj.startBank !== undefined && obj.startBank !== null) localStorage.setItem("startBank", String(obj.startBank));
         // メモリ上の値も同期
         data = JSON.parse(localStorage.getItem("kaikei")) || [];
         subjects = JSON.parse(localStorage.getItem("subjects")) || [];
