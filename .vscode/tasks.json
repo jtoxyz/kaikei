@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Revert ledger header and row",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$ErrorActionPreference = 'Stop';\n(Get-Content -Raw index.html) -replace '<th>区分</th>[\\s\\S]*?<th>金額</th>\\s*', '' | Set-Content -Encoding UTF8 index.html; \n$js = Get-Content -Raw main.js;\n$js = $js -replace 'function renderEditableRow[\\s\\S]*?}\\n\\nfunction updateTypeVisibility','function renderEditableRow(d, ci, co, cash, bi, bo, bank) {\\n    const checked = selectedRows.has(d._idx) ? \\'checked\\' : \\'\\';\\n    const subjectOptions = subjects.map(s => `<option value=\"${s}\" ${d.subject===s?\\'selected\\':\\'\\' }>${s}</option>`).join(\\'\\');\\n    return `<tr>\\n        <td><input type=\\\"checkbox\\\" class=\\\"row-checkbox\\\" data-idx=\\\"${d._idx}\\\" ${checked} onchange=\\\"toggleRowSelect(${d._idx}); this.checked = selectedRows.has(${d._idx});\\\"></td>\\n        <td><input type=\\\"date\\\" data-idx=\\\"${d._idx}\\\" data-field=\\\"date\\\" value=\\\"${d.date}\\\" style=\\\"width:120px;\\\"></td>\\n        <td>\\n            <select data-idx=\\\"${d._idx}\\\" data-field=\\\"subject\\\" style=\\\"width:100px;\\\">\\n                <option value=\\\"\\\">(なし)</option>\\n                ${subjectOptions}\\n            </select>\\n        </td>\\n        <td><input type=\\\"text\\\" data-idx=\\\"${d._idx}\\\" data-field=\\\"content\\\" value=\\\"${d.content}\\\" style=\\\"width:150px;\\\"></td>\\n        <td>${ci.toLocaleString()}</td>\\n        <td>${co.toLocaleString()}</td>\\n        <td>${cash.toLocaleString()}</td>\\n        <td>${bi.toLocaleString()}</td>\\n        <td>${bo.toLocaleString()}</td>\\n        <td>${bank.toLocaleString()}</td>\\n        <td><input type=\\\"text\\\" data-idx=\\\"${d._idx}\\\" data-field=\\\"note\\\" value=\\\"${d.note||\\'\\'}\\\" style=\\\"width:120px;\\\"></td>\\n        <td><button onclick=\\\"updateRow(${d._idx})\\\">更新</button></td>\\n    </tr>`;\\n}\\n\\nfunction updateTypeVisibility';\nSet-Content -Encoding UTF8 main.js $js;"
+			],
+			"isBackground": false
+		}
+	]
+}

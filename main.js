@@ -80,46 +80,8 @@ function save(){
     const entry = {
         date: document.getElementById("date").value,
         type: typeVal,
-        subject: sub,
-        content: document.getElementById("content").value,
         amount: Number(document.getElementById("amount").value),
-        account: accountVal,
-        note: document.getElementById("note").value
-    };
 
-    if (editIndex !== null) {
-        data[editIndex] = entry;
-    } else {
-        data.push(entry);
-    }
-
-    data.sort((a,b)=>a.date.localeCompare(b.date));
-
-    const jsonData = JSON.stringify(data);
-    localStorage.setItem("kaikei", jsonData);
-    saveData();
-    updateFilters();
-    render();
-
-    clearForm();
-}
-
-function clearForm(){
-    document.getElementById("date").value = "";
-    setRadioValue("type", "収入");
-    setRadioValue("account", "現金");
-    setRadioValue("transferDirection", "deposit");
-    document.getElementById("subject").value = "";
-    document.getElementById("content").value = "";
-    document.getElementById("amount").value = "";
-    document.getElementById("note").value = "";
-    editIndex = null;
-    toggleEditUi(false);
-    updateAccountVisibility();
-}
-
-function del(i){
-    if (confirm("削除しますか？")){
         data.splice(i,1);
         const jsonData = JSON.stringify(data);
         localStorage.setItem("kaikei", jsonData);
@@ -130,29 +92,42 @@ function del(i){
 }
 
 async function saveData() {
-    const data = {
+    const pw = localStorage.getItem("password");
+    if (!pw) return; // パスワード未設定時はリモート保存しない
+    const payload = {
         kaikei: localStorage.getItem("kaikei"),
         subjects: localStorage.getItem("subjects"),
         startCash: localStorage.getItem("startCash"),
         startBank: localStorage.getItem("startBank"),
     }
-    await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + localStorage.getItem("password"), {
-        method: "POST",
-        body: JSON.stringify(data),
-    });
+    try {
+        await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    } catch (_) { /* 通信失敗は無視（ローカルは保持） */ }
 }
 
 async function loadData() {
-    const jsonData = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + localStorage.getItem("password"), {
-        method: "GET",
-    });
-
-    const data = JSON.parse(jsonData);
-
-    localStorage.setItem("kaikei", data.kaikei);
-    localStorage.setItem("subjects", data.subjects);
-    localStorage.setItem("startCash", data.startCash);
-    localStorage.setItem("startBank", data.startBank);
+    const pw = localStorage.getItem("password");
+    if (!pw) return; // パスワード未設定なら同期しない（ローカル優先）
+    try {
+        const res = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, { method: "GET" });
+        if (!res.ok) return;
+        const obj = await res.json();
+        // 有効な値のみ上書きしてローカルの空データ上書きを防止
+        if (obj && typeof obj.kaikei === 'string') localStorage.setItem("kaikei", obj.kaikei);
+        if (obj && typeof obj.subjects === 'string') localStorage.setItem("subjects", obj.subjects);
+        if (obj && obj.startCash !== undefined && obj.startCash !== null) localStorage.setItem("startCash", obj.startCash);
+        if (obj && obj.startBank !== undefined && obj.startBank !== null) localStorage.setItem("startBank", obj.startBank);
+        // メモリ上の値も同期
+        data = JSON.parse(localStorage.getItem("kaikei")) || [];
+        subjects = JSON.parse(localStorage.getItem("subjects")) || [];
+        startCash = Number(localStorage.getItem("startCash") || 0);
+        startBank = Number(localStorage.getItem("startBank") || 0);
+    } catch (_) {
+        // 失敗時はローカルのまま使う
+    }
 }
 
 function startEdit(i){
@@ -235,24 +210,15 @@ function deleteSelected(){
 }
 
 function updateRow(idx){
-    const typeVal = document.querySelector(`select[data-idx="${idx}"][data-field="type"]`).value;
-    let accountVal = document.querySelector(`select[data-idx="${idx}"][data-field="account"]`).value;
-    
-    if (typeVal === "振替") {
-        const dirVal = document.querySelector(`select[data-idx="${idx}"][data-field="transferDir"]`).value;
-        accountVal = dirVal === "withdraw" ? "通帳" : "現金";
-    }
-
+    const original = data[idx];
     const updatedEntry = {
+        ...original,
         date: document.querySelector(`input[data-idx="${idx}"][data-field="date"]`).value,
-        type: typeVal,
         subject: document.querySelector(`select[data-idx="${idx}"][data-field="subject"]`).value,
         content: document.querySelector(`input[data-idx="${idx}"][data-field="content"]`).value,
-        amount: Number(document.querySelector(`input[data-idx="${idx}"][data-field="amount"]`).value),
-        account: accountVal,
         note: document.querySelector(`input[data-idx="${idx}"][data-field="note"]`).value
     };
-    
+
     data[idx] = updatedEntry;
     data.sort((a,b)=>a.date.localeCompare(b.date));
     localStorage.setItem("kaikei", JSON.stringify(data));
@@ -329,7 +295,11 @@ function render(){
     const year = document.getElementById("yearFilter").value;
     const month = document.getElementById("monthFilter").value;
     const subjectF = document.getElementById("subjectFilter").value;
+    const kw = (document.getElementById('kwFilter')?.value || '').trim();
+    const amountMin = document.getElementById('amountMin')?.value;
+    const amountMax = document.getElementById('amountMax')?.value;
 
+    // 高度フィルタ: キーワード(内容/備考), 金額範囲 を追加
     let viewData = data
         .map((d, idx) => ({ ...d, _idx: idx }))
         .filter(d => {
@@ -337,6 +307,12 @@ function render(){
             if(year && dt.getFullYear()!=year) return false;
             if(month && dt.getMonth()+1!=month) return false;
             if(subjectF && d.subject!==subjectF) return false;
+            if (kw) {
+                const text = `${d.content||''}\n${d.note||''}`;
+                if (!text.includes(kw)) return false;
+            }
+            if (amountMin && !(Number(d.amount) >= Number(amountMin))) return false;
+            if (amountMax && !(Number(d.amount) <= Number(amountMax))) return false;
             return true;
         });
 
@@ -393,6 +369,133 @@ function render(){
     });
     document.getElementById("cashBal").textContent=cash.toLocaleString();
     document.getElementById("bankBal").textContent=bank.toLocaleString();
+
+    // 月次サマリーの更新
+    updateMonthlySummary(viewData);
+}
+
+/**
+ * 月次サマリー更新: フィルタ済みデータから月ごとの収入/支出/差分を集計して描画
+ */
+function updateMonthlySummary(viewData){
+    const sums = Array.from({length:12}, ()=>({in:0,out:0}));
+    viewData.forEach(d=>{
+        const m = (new Date(d.date)).getMonth();
+        if (d.type === '収入') sums[m].in += Number(d.amount)||0;
+        if (d.type === '支出') sums[m].out += Number(d.amount)||0;
+        if (d.type === '振替') {
+            // 振替は実収支に影響なし
+        }
+    });
+    const bi = Number(localStorage.getItem('budgetIncomeMonthly')||0);
+    const be = Number(localStorage.getItem('budgetExpenseMonthly')||0);
+    let html = '<table><thead><tr><th>月</th><th>収入</th><th>支出</th><th>差引</th><th>収入予算差</th><th>支出予算差</th></tr></thead><tbody>'; 
+    for (let i=0;i<12;i++){
+        const inc = sums[i].in; const exp = sums[i].out; const net = inc - exp;
+        const incDelta = bi ? (inc - bi) : '';
+        const expDelta = be ? (be - exp) : '';
+        html += `<tr><td>${i+1}月</td><td>${inc.toLocaleString()}</td><td>${exp.toLocaleString()}</td><td>${net.toLocaleString()}</td><td>${incDelta!==''?incDelta.toLocaleString():''}</td><td>${expDelta!==''?expDelta.toLocaleString():''}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    const box = document.getElementById('summaryContent');
+    if (box) box.innerHTML = html;
+}
+
+/** 予算を保存（簡易: 月次 収入/支出 予算） */
+function saveBudgets(){
+    const bi = document.getElementById('budgetIncomeMonthly')?.value;
+    const be = document.getElementById('budgetExpenseMonthly')?.value;
+    if (bi!==undefined) localStorage.setItem('budgetIncomeMonthly', bi||'0');
+    if (be!==undefined) localStorage.setItem('budgetExpenseMonthly', be||'0');
+    render();
+    alert('予算を保存しました');
+}
+
+/** 総編集: 区分選択でUIの切り替え */
+function bulkTypeChanged(){
+    const t = document.getElementById('bulkType')?.value;
+    const acc = document.getElementById('bulkAccountWrap');
+    const trf = document.getElementById('bulkTransferWrap');
+    if (!acc || !trf) return;
+    if (t === '振替'){
+        acc.style.display = 'none';
+        trf.style.display = '';
+    } else if (t){
+        acc.style.display = '';
+        trf.style.display = 'none';
+    } else {
+        // 変更しない
+        acc.style.display = '';
+        trf.style.display = 'none';
+    }
+}
+
+/**
+ * 総編集: 選択行に対し 区分/口座(振替方向)/金額 を一括適用
+ * 金額は未入力なら変更しない
+ */
+function applyBulkChanges(){
+    if (selectedRows.size===0){ alert('対象行を選択してください'); return; }
+    const t = document.getElementById('bulkType')?.value || '';
+    const acc = document.getElementById('bulkAccount')?.value || '';
+    const dir = document.getElementById('bulkTransferDir')?.value || '';
+    const amtStr = document.getElementById('bulkAmount')?.value || '';
+    const amt = amtStr!=='' ? Number(amtStr) : null;
+
+    Array.from(selectedRows).forEach(idx=>{
+        const d = {...data[idx]};
+        if (t){ d.type = t; }
+        if (d.type === '振替'){
+            // 振替時は account を方向から決定
+            if (dir) d.account = (dir==='withdraw') ? '通帳' : '現金';
+        } else {
+            if (acc) d.account = acc;
+        }
+        if (amt!==null) d.amount = amt;
+        data[idx] = d;
+    });
+    localStorage.setItem('kaikei', JSON.stringify(data));
+    saveData();
+    render();
+    alert('一括適用しました');
+}
+
+/** バックアップをJSONでダウンロード */
+function exportBackup(){
+    const payload = {
+        kaikei: data,
+        subjects,
+        startCash,
+        startBank
+    };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'kaikei-backup.json';
+    document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+}
+
+/** バックアップJSONを読み込み復元 */
+function importBackup(ev){
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+        try {
+            const obj = JSON.parse(rd.result);
+            if (obj.kaikei) { data = obj.kaikei; localStorage.setItem('kaikei', JSON.stringify(data)); }
+            if (obj.subjects) { subjects = obj.subjects; localStorage.setItem('subjects', JSON.stringify(subjects)); }
+            if (obj.startCash!=null) { startCash = Number(obj.startCash); localStorage.setItem('startCash', String(startCash)); }
+            if (obj.startBank!=null) { startBank = Number(obj.startBank); localStorage.setItem('startBank', String(startBank)); }
+            updateSubjectSelect();
+            render();
+            alert('復元しました');
+        } catch(e){
+            alert('復元に失敗しました: '+ e);
+        }
+    };
+    rd.readAsText(file);
 }
 
 function toggleAllCheckboxes(checkbox) {
@@ -406,8 +509,6 @@ function toggleAllCheckboxes(checkbox) {
 function renderEditableRow(d, ci, co, cash, bi, bo, bank) {
     const checked = selectedRows.has(d._idx) ? 'checked' : '';
     const subjectOptions = subjects.map(s => `<option value="${s}" ${d.subject===s?'selected':''}>${s}</option>`).join('');
-    const transferDir = d.account === "通帳" ? "withdraw" : "deposit";
-    
     return `<tr>
         <td><input type="checkbox" class="row-checkbox" data-idx="${d._idx}" ${checked} onchange="toggleRowSelect(${d._idx}); this.checked = selectedRows.has(${d._idx});"></td>
         <td><input type="date" data-idx="${d._idx}" data-field="date" value="${d.date}" style="width:120px;"></td>
@@ -424,24 +525,6 @@ function renderEditableRow(d, ci, co, cash, bi, bo, bank) {
         <td>${bi.toLocaleString()}</td>
         <td>${bo.toLocaleString()}</td>
         <td>${bank.toLocaleString()}</td>
-        <td>
-            <select data-idx="${d._idx}" data-field="type" style="width:70px;" onchange="updateTypeVisibility(${d._idx})">
-                <option value="収入" ${d.type==='収入'?'selected':''}>収入</option>
-                <option value="支出" ${d.type==='支出'?'selected':''}>支出</option>
-                <option value="振替" ${d.type==='振替'?'selected':''}>振替</option>
-            </select>
-        </td>
-        <td>
-            <select data-idx="${d._idx}" data-field="account" style="width:70px;${d.type==='振替'?'display:none;':''}">
-                <option value="現金" ${d.account==='現金'?'selected':''}>現金</option>
-                <option value="通帳" ${d.account==='通帳'?'selected':''}>通帳</option>
-            </select>
-            <select data-idx="${d._idx}" data-field="transferDir" style="width:70px;${d.type==='振替'?'':'display:none;'}">
-                <option value="deposit" ${transferDir==='deposit'?'selected':''}>預入</option>
-                <option value="withdraw" ${transferDir==='withdraw'?'selected':''}>引出</option>
-            </select>
-        </td>
-        <td><input type="number" data-idx="${d._idx}" data-field="amount" value="${d.amount}" style="width:90px;"></td>
         <td><input type="text" data-idx="${d._idx}" data-field="note" value="${d.note||''}" style="width:120px;"></td>
         <td><button onclick="updateRow(${d._idx})">更新</button></td>
     </tr>`;
