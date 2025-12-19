@@ -532,6 +532,7 @@ function exportExcel(){
 
         const moneyFmt = "#,##0;[Red]-#,##0";
         const borderThin = { top:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"}, bottom:{style:"thin"} };
+        const borderOuter = { style:"medium" };
         function createCellStyle(bold=false, bgColor=null, align="center", numFormat=false){
             const s={ font:{ bold:bold }, alignment:{ horizontal:align } };
             if(bgColor) s.fill={ fgColor:{ rgb:bgColor } };
@@ -544,6 +545,21 @@ function exportExcel(){
                     const cellRef = XLSX.utils.encode_cell({c,r});
                     const cell = ws[cellRef] || {};
                     cell.s = { ...(cell.s||{}), border: borderThin };
+                    ws[cellRef] = cell;
+                }
+            }
+        };
+        const applyOuterBorder = (ws, startRow, endRow, startCol, endCol) => {
+            for(let r=startRow; r<=endRow; r++){
+                for(let c=startCol; c<=endCol; c++){
+                    const cellRef = XLSX.utils.encode_cell({c,r});
+                    const cell = ws[cellRef] || {};
+                    const border = { ...(cell.s?.border||{}) };
+                    if (r===startRow) border.top = borderOuter;
+                    if (r===endRow) border.bottom = borderOuter;
+                    if (c===startCol) border.left = borderOuter;
+                    if (c===endCol) border.right = borderOuter;
+                    cell.s = { ...(cell.s||{}), border };
                     ws[cellRef] = cell;
                 }
             }
@@ -608,6 +624,7 @@ function exportExcel(){
             }
         }
         applyBorders(ws1, 0, sheet1.length-1, 0, 9);
+        applyOuterBorder(ws1, 0, sheet1.length-1, 0, 9);
         XLSX.utils.book_append_sheet(wb, ws1, "出納帳");
 
         // 収支計算書
@@ -675,6 +692,7 @@ function exportExcel(){
             const cell = ws2[XLSX.utils.encode_cell({c:c,r:lastRow})]; if(cell) cell.s = createCellStyle(true,"DDDDDD","right",moneyFmt);
         }
         applyBorders(ws2, 0, sheet2.length-1, 0, 6);
+        applyOuterBorder(ws2, 0, sheet2.length-1, 0, 6);
         XLSX.utils.book_append_sheet(wb, ws2, "収支計算書");
 
         // 科目別
@@ -716,6 +734,7 @@ function exportExcel(){
             }
         }
         applyBorders(ws, 0, sh.length-1, 0, 3);
+        applyOuterBorder(ws, 0, sh.length-1, 0, 3);
         XLSX.utils.book_append_sheet(wb, ws, s);
     });
 
