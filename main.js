@@ -80,15 +80,28 @@ function save(){
     const entry = {
         date: document.getElementById("date").value,
         type: typeVal,
+        subject: sub,
+        content: document.getElementById("content").value,
         amount: Number(document.getElementById("amount").value),
+        account: accountVal,
+        note: document.getElementById("note").value
+    };
 
-        data.splice(i,1);
-        const jsonData = JSON.stringify(data);
-        localStorage.setItem("kaikei", jsonData);
-        saveData();
-        updateFilters();
-        render();
+    if (editIndex !== null) {
+        data[editIndex] = entry;
+    } else {
+        data.push(entry);
     }
+
+    data.sort((a,b)=>a.date.localeCompare(b.date));
+
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem("kaikei", jsonData);
+    saveData();
+    updateFilters();
+    render();
+
+    clearForm();
 }
 
 async function saveData() {
@@ -192,6 +205,16 @@ function deselectAllRows(){
     selectedRows.clear();
     const allCheckboxes = document.querySelectorAll('.row-checkbox');
     allCheckboxes.forEach(cb => cb.checked = false);
+}
+
+// 単体削除（通常モード用）
+function del(i){
+    if (!confirm("削除しますか？")) return;
+    data.splice(i,1);
+    localStorage.setItem("kaikei", JSON.stringify(data));
+    saveData();
+    updateFilters();
+    render();
 }
 
 function deleteSelected(){
@@ -369,46 +392,6 @@ function render(){
     });
     document.getElementById("cashBal").textContent=cash.toLocaleString();
     document.getElementById("bankBal").textContent=bank.toLocaleString();
-
-    // 月次サマリーの更新
-    updateMonthlySummary(viewData);
-}
-
-/**
- * 月次サマリー更新: フィルタ済みデータから月ごとの収入/支出/差分を集計して描画
- */
-function updateMonthlySummary(viewData){
-    const sums = Array.from({length:12}, ()=>({in:0,out:0}));
-    viewData.forEach(d=>{
-        const m = (new Date(d.date)).getMonth();
-        if (d.type === '収入') sums[m].in += Number(d.amount)||0;
-        if (d.type === '支出') sums[m].out += Number(d.amount)||0;
-        if (d.type === '振替') {
-            // 振替は実収支に影響なし
-        }
-    });
-    const bi = Number(localStorage.getItem('budgetIncomeMonthly')||0);
-    const be = Number(localStorage.getItem('budgetExpenseMonthly')||0);
-    let html = '<table><thead><tr><th>月</th><th>収入</th><th>支出</th><th>差引</th><th>収入予算差</th><th>支出予算差</th></tr></thead><tbody>'; 
-    for (let i=0;i<12;i++){
-        const inc = sums[i].in; const exp = sums[i].out; const net = inc - exp;
-        const incDelta = bi ? (inc - bi) : '';
-        const expDelta = be ? (be - exp) : '';
-        html += `<tr><td>${i+1}月</td><td>${inc.toLocaleString()}</td><td>${exp.toLocaleString()}</td><td>${net.toLocaleString()}</td><td>${incDelta!==''?incDelta.toLocaleString():''}</td><td>${expDelta!==''?expDelta.toLocaleString():''}</td></tr>`;
-    }
-    html += '</tbody></table>';
-    const box = document.getElementById('summaryContent');
-    if (box) box.innerHTML = html;
-}
-
-/** 予算を保存（簡易: 月次 収入/支出 予算） */
-function saveBudgets(){
-    const bi = document.getElementById('budgetIncomeMonthly')?.value;
-    const be = document.getElementById('budgetExpenseMonthly')?.value;
-    if (bi!==undefined) localStorage.setItem('budgetIncomeMonthly', bi||'0');
-    if (be!==undefined) localStorage.setItem('budgetExpenseMonthly', be||'0');
-    render();
-    alert('予算を保存しました');
 }
 
 /** 総編集: 区分選択でUIの切り替え */
