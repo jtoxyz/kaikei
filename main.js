@@ -105,28 +105,6 @@ async function saveData() {
     } catch (_) { /* 通信失敗は無視（ローカルは保持） */ }
 }
 
-async function loadData() {
-    const pw = localStorage.getItem("password");
-    if (!pw) return; // パスワード未設定なら同期しない（ローカル優先）
-    try {
-        const res = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, { method: "GET" });
-        if (!res.ok) return;
-        const obj = await res.json();
-        // 有効な値のみ上書きしてローカルの空データ上書きを防止
-        if (obj && typeof obj.kaikei === 'string') localStorage.setItem("kaikei", obj.kaikei);
-        if (obj && typeof obj.subjects === 'string') localStorage.setItem("subjects", obj.subjects);
-        if (obj && obj.startCash !== undefined && obj.startCash !== null) localStorage.setItem("startCash", obj.startCash);
-        if (obj && obj.startBank !== undefined && obj.startBank !== null) localStorage.setItem("startBank", obj.startBank);
-        // メモリ上の値も同期
-        data = JSON.parse(localStorage.getItem("kaikei")) || [];
-        subjects = JSON.parse(localStorage.getItem("subjects")) || [];
-        startCash = Number(localStorage.getItem("startCash") || 0);
-        startBank = Number(localStorage.getItem("startBank") || 0);
-    } catch (_) {
-        // 失敗時はローカルのまま使う
-    }
-}
-
 function startEdit(i){
     const d = data[i];
     editIndex = i;
