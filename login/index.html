@@ -5,15 +5,19 @@
     <title>ログイン</title>
 
     <!-- CSSの読み込み -->
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <script>
       function onClickLogin(e) {
         const pass = document.getElementById("pass").value;
-        if (!pass) alert("パスワードが入力されていません。")
+        if (!pass) {
+          alert("パスワードが入力されていません。");
+          return;
+        }
 
         localStorage.setItem("password", pass);
 
-        window.location.href = "/";
+        // GitHub Pagesなどサブパス配信でも動くように相対パスで戻る
+        window.location.href = "../index.html";
       }
     </script>
   </head>
