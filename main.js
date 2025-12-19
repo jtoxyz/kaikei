@@ -6,59 +6,43 @@ let editIndex = null;
 let bulkEditMode = false;
 let selectedRows = new Set();
 
-function main() {
-    loadData();
-
-    // 読み込まれた時
-    addEventListener("DOMContentLoaded", () => onLoad());
-}
-
-function onLoad() {
-    if (localStorage.getItem("startCash") !== null)
-        document.getElementById("carryArea").style.display = "none";
-
-    updateSubjectSelect();
-    setupTypeToggle();
-    render();
-}
-
-function getSelectedRadioValue(name) {
-    const checked = document.querySelector(`input[name="${name}"]:checked`);
-    return checked ? checked.value : "";
-}
-
-function setRadioValue(name, value) {
-    const target = document.querySelector(`input[name="${name}"][value="${value}"]`);
-    if (target) target.checked = true;
-}
-
-function setupTypeToggle() {
-    document.querySelectorAll('input[name="type"]').forEach(r => {
-        r.addEventListener("change", updateAccountVisibility);
-    });
-    updateAccountVisibility();
-}
-
-function updateAccountVisibility() {
-    const typeVal = getSelectedRadioValue("type");
-    const accountGroup = document.getElementById("accountGroup");
-    const transferGroup = document.getElementById("transferGroup");
-    if (typeVal === "振替") {
-        accountGroup.style.display = "none";
-        transferGroup.style.display = "flex";
-    } else {
-        accountGroup.style.display = "flex";
-        transferGroup.style.display = "none";
+async function saveData() {
+    const pw = localStorage.getItem("password");
+    if (!pw) return; // パスワード未設定時はリモート保存しない
+    const payload = {
+        kaikei: localStorage.getItem("kaikei"),
+        subjects: localStorage.getItem("subjects"),
+        startCash: localStorage.getItem("startCash"),
+        startBank: localStorage.getItem("startBank"),
     }
+    try {
+        await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    } catch (_) { /* 通信失敗は無視（ローカルは保持） */ }
 }
 
-function setStart(){
-    startCash = Number(document.getElementById("startCash").value);
-    startBank = Number(document.getElementById("startBank").value);
-    localStorage.setItem("startCash", startCash);
-    localStorage.setItem("startBank", startBank);
-    document.getElementById("carryArea").style.display = "none";
-    render();
+async function loadData() {
+    const pw = localStorage.getItem("password");
+    if (!pw) return; // パスワード未設定なら同期しない（ローカル優先）
+    try {
+        const res = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, { method: "GET" });
+        if (!res.ok) return;
+        const obj = await res.json();
+        // 有効な値のみ上書きしてローカルの空データ上書きを防止
+        if (obj && typeof obj.kaikei === 'string') localStorage.setItem("kaikei", obj.kaikei);
+        if (obj && typeof obj.subjects === 'string') localStorage.setItem("subjects", obj.subjects);
+        if (obj && obj.startCash !== undefined && obj.startCash !== null) localStorage.setItem("startCash", obj.startCash);
+        if (obj && obj.startBank !== undefined && obj.startBank !== null) localStorage.setItem("startBank", obj.startBank);
+        // メモリ上の値も同期
+        data = JSON.parse(localStorage.getItem("kaikei")) || [];
+        subjects = JSON.parse(localStorage.getItem("subjects")) || [];
+        startCash = Number(localStorage.getItem("startCash") || 0);
+        startBank = Number(localStorage.getItem("startBank") || 0);
+    } catch (_) {
+        // 失敗時はローカルのまま使う
+    }
 }
 
 function save(){
@@ -242,6 +226,13 @@ function updateRow(idx){
         note: document.querySelector(`input[data-idx="${idx}"][data-field="note"]`).value
     };
 
+        data[idx] = updatedEntry;
+        data.sort((a,b)=>a.date.localeCompare(b.date));
+        localStorage.setItem("kaikei", JSON.stringify(data));
+        saveData();
+        updateFilters();
+        render();
+
     data[idx] = updatedEntry;
     data.sort((a,b)=>a.date.localeCompare(b.date));
     localStorage.setItem("kaikei", JSON.stringify(data));
@@ -251,32 +242,47 @@ function updateRow(idx){
 }
 
 function addSubject(){
-    const newSub = prompt("新しい科目名を入力してください");
-    if(newSub && !subjects.includes(newSub)){
-        subjects.push(newSub);
-        localStorage.setItem("subjects", JSON.stringify(subjects));
-        updateSubjectSelect();
-        alert("科目追加しました");
+    const raw = prompt("新しい科目名を入力してください");
+    const newSub = (raw || "").trim();
+    if(!newSub){
+        alert("科目名が空です");
+        return;
     }
+    const dup = subjects.some(s => s.toLowerCase() === newSub.toLowerCase());
+    if(dup){
+        alert("同名の科目が既にあります");
+        return;
+    }
+    subjects.push(newSub);
+    localStorage.setItem("subjects", JSON.stringify(subjects));
+    updateSubjectSelect();
+    const subSelect = document.getElementById("subject");
+    if (subSelect) subSelect.value = newSub;
+    saveData(); // パスワード設定時はリモートにも同期
+    alert("科目を追加しました");
 }
 
 function updateSubjectSelect(){
     const subSelect = document.getElementById("subject");
-    subSelect.innerHTML="<option value=\"\">(なし)</option>";
-    subjects.forEach(s=>{
-        const opt = document.createElement("option");
-        opt.value=s; opt.textContent=s;
-        subSelect.appendChild(opt);
-    });
+    if (subSelect) {
+        subSelect.innerHTML="<option value=\"\">(なし)</option>";
+        subjects.forEach(s=>{
+            const opt = document.createElement("option");
+            opt.value=s; opt.textContent=s;
+            subSelect.appendChild(opt);
+        });
+    }
     const subFilter = document.getElementById("subjectFilter");
-    const val = subFilter.value;
-    subFilter.innerHTML='<option value="">すべて</option>';
-    subjects.forEach(s=>{
-        const opt = document.createElement("option");
-        opt.value=s; opt.textContent=s;
-        subFilter.appendChild(opt);
-    });
-    subFilter.value = val;
+    if (subFilter) {
+        const val = subFilter.value;
+        subFilter.innerHTML='<option value="">すべて</option>';
+        subjects.forEach(s=>{
+            const opt = document.createElement("option");
+            opt.value=s; opt.textContent=s;
+            subFilter.appendChild(opt);
+        });
+        subFilter.value = val;
+    }
 }
 
 function updateFilters(){
@@ -534,102 +540,206 @@ function exportExcel(){
     const month = document.getElementById("monthFilter").value;
     const subjectF = document.getElementById("subjectFilter").value;
 
-    let viewData = data.filter(d=>{
-        const dt = new Date(d.date);
-        if(year && dt.getFullYear()!=year) return false;
-        if(month && dt.getMonth()+1!=month) return false;
-        if(subjectF && d.subject!==subjectF) return false;
-        return true;
-    });
+        const targetYear = Number(year) || new Date().getFullYear();
+        const eraTitle = targetYear >= 2019 ? `令和${targetYear - 2018}年度` : `${targetYear}年度`;
+        const makeTitle = (label) => `${eraTitle} ${label}`;
 
-    function createCellStyle(bold=false, bgColor=null, align="center", numFormat=false){
-        const s={ font:{ bold:bold }, alignment:{ horizontal:align } };
-        if(bgColor) s.fill={ fgColor:{ rgb:bgColor } };
-        if(numFormat) s.numFmt="#,##0";
-        return s;
-    }
+        let viewData = data.filter(d=>{
+            const dt = new Date(d.date);
+            if(year && dt.getFullYear()!=year) return false;
+            if(month && dt.getMonth()+1!=month) return false;
+            if(subjectF && d.subject!==subjectF) return false;
+            return true;
+        });
 
-    // 出納帳
-    const sheet1 = [["日付","科目","内容","現金収入","現金支出","現金残高","通帳収入","通帳支出","通帳残高","備考"]];
-    let cash = startCash, bank = startBank;
-    viewData.forEach(d=>{
-        let ci="",co="",bi="",bo="";
-        if(d.type==="収入"){ if(d.account==="現金"){ci=d.amount; cash+=d.amount} else{bi=d.amount; bank+=d.amount}}
-        if(d.type==="支出"){ if(d.account==="現金"){co=d.amount; cash-=d.amount} else{bo=d.amount; bank-=d.amount}}
-        if(d.type==="振替"){ if(d.account==="現金"){co=d.amount; bi=d.amount; cash-=d.amount; bank+=d.amount} else{bo=d.amount; ci=d.amount; bank-=d.amount; cash+=d.amount}}
-        sheet1.push([d.date,d.subject,d.content,ci,co,cash,bi,bo,bank,d.note]);
-    });
-    const ws1 = XLSX.utils.aoa_to_sheet(sheet1);
-    // ヘッダ装飾
-    for(let c=0;c<10;c++){
-        const cell = ws1[XLSX.utils.encode_cell({c:c,r:0})];
-        if(cell) cell.s = createCellStyle(true,"FFFFCC","center");
-    }
-
-    // 金額列右揃え＋カンマ
-    [3,4,5,6,7,8].forEach(c=>{
-        for(let r=1;r<sheet1.length;r++){
-            const cell = ws1[XLSX.utils.encode_cell({c:c,r:r})];
-            if(cell) cell.s = createCellStyle(false,null,"right",true);
+        const moneyFmt = "#,##0;[Red]-#,##0";
+        const borderThin = { top:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"}, bottom:{style:"thin"} };
+        function createCellStyle(bold=false, bgColor=null, align="center", numFormat=false){
+            const s={ font:{ bold:bold }, alignment:{ horizontal:align } };
+            if(bgColor) s.fill={ fgColor:{ rgb:bgColor } };
+            if(numFormat) s.numFmt=numFormat===true?moneyFmt:numFormat;
+            return s;
         }
-    });
-    XLSX.utils.book_append_sheet(wb, ws1, "出納帳");
+        const applyBorders = (ws, startRow, endRow, startCol, endCol) => {
+            for(let r=startRow; r<=endRow; r++){
+                for(let c=startCol; c<=endCol; c++){
+                    const cellRef = XLSX.utils.encode_cell({c,r});
+                    const cell = ws[cellRef] || {};
+                    cell.s = { ...(cell.s||{}), border: borderThin };
+                    ws[cellRef] = cell;
+                }
+            }
+        };
+        const usedSheetNames = new Set();
+        const makeSheetNameSafe = (name) => {
+            const baseRaw = (name || "未分類").trim() || "未分類";
+            const base = baseRaw.replace(/[\\/?*\[\]:]/g,"-").slice(0,25);
+            let candidate = base;
+            let i = 1;
+            while(usedSheetNames.has(candidate)){
+                candidate = `${base}_${i++}`;
+            }
+            usedSheetNames.add(candidate);
+            return candidate;
+        };
 
-    // 収支決算書
-    const income={}, expense={};
-    viewData.forEach(d=>{
-        if(d.type==="収入") income[d.subject]=(income[d.subject]||0)+d.amount;
-        if(d.type==="支出") expense[d.subject]=(expense[d.subject]||0)+d.amount;
-    });
-    const sheet2=[["令和〇年度 収支決算報告書"],[],["収入","","支出"],[]];
-    const keys = [...new Set([...Object.keys(income),...Object.keys(expense)])];
-    let tin=0, tout=0;
-    
-    keys.forEach(k=>{
-        const i=income[k]||""; const o=expense[k]||""; if(i) tin+=i; if(o) tout+=o;
-        sheet2.push([k,i,k,o]);
-    });
-    sheet2.push(["合計",tin,"合計",tout]);
-    const ws2 = XLSX.utils.aoa_to_sheet(sheet2);
-    // ヘッダ装飾
-    for(let c=0;c<4;c++){
-    const cell = ws2[XLSX.utils.encode_cell({c:c,r:2})]; if(cell) cell.s = createCellStyle(true,"FFFFCC","center");
-    }
-    // 合計行装飾
-    const lastRow = sheet2.length-1;
-    for(let c=0;c<4;c++){
-    const cell = ws2[XLSX.utils.encode_cell({c:c,r:lastRow})]; if(cell) cell.s = createCellStyle(true,"DDDDDD","right",true);
-    }
-    XLSX.utils.book_append_sheet(wb, ws2, "収支決算書");
+        // 出納帳
+        const sheet1 = [
+            [makeTitle("出納帳"),"","","","","","","","",""],
+            ["日付","科目","内容","現金収入","現金支出","現金残高","通帳収入","通帳支出","通帳残高","備考"]
+        ];
+        let cash = startCash, bank = startBank;
+        viewData.forEach(d=>{
+            let ci="",co="",bi="",bo="";
+            if(d.type==="収入"){ if(d.account==="現金"){ci=d.amount; cash+=d.amount} else{bi=d.amount; bank+=d.amount}}
+            if(d.type==="支出"){ if(d.account==="現金"){co=d.amount; cash-=d.amount} else{bo=d.amount; bank-=d.amount}}
+            if(d.type==="振替"){ if(d.account==="現金"){co=d.amount; bi=d.amount; cash-=d.amount; bank+=d.amount} else{bo=d.amount; ci=d.amount; bank-=d.amount; cash+=d.amount}}
+            sheet1.push([d.date,d.subject,d.content,ci,co,cash,bi,bo,bank,d.note]);
+        });
+        const ws1 = XLSX.utils.aoa_to_sheet(sheet1);
+        ws1['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:9} }];
+        // レイアウト: 列幅/フリーズ/フィルタ
+        ws1['!cols'] = [
+            {wch:12},{wch:12},{wch:18},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:16}
+        ];
+        ws1['!freeze'] = { xSplit:0, ySplit:2 };
+        ws1['!autofilter'] = { ref: `A2:J${sheet1.length}` };
 
-    // 科目別
-    const subjectsMap={};
+        // ヘッダー調整
+        for(let c=0;c<10;c++){
+            const cell = ws1[XLSX.utils.encode_cell({c:c,r:0})];
+            if(cell) cell.s = createCellStyle(true,"DDDDDD","center");
+            const cell2 = ws1[XLSX.utils.encode_cell({c:c,r:1})];
+            if(cell2) cell2.s = createCellStyle(true,"FFFFCC","center");
+        }
+
+        // 書式: 日付/金額列＋交互色
+        for(let r=2;r<sheet1.length;r++){
+            const isOdd = (r % 2) === 1;
+            const fill = isOdd ? { fgColor:{ rgb:"F7F7F7" } } : null;
+            // 日付
+            const dateCell = ws1[XLSX.utils.encode_cell({c:0,r:r})];
+            if(dateCell) dateCell.s = createCellStyle(false,null,"center","yyyy-mm-dd");
+            [3,4,5,6,7,8].forEach(c=>{
+                const cell = ws1[XLSX.utils.encode_cell({c:c,r:r})];
+                if(cell) cell.s = createCellStyle(false,null,"right",moneyFmt);
+            });
+            for(let c=0;c<10;c++){
+                const cell = ws1[XLSX.utils.encode_cell({c:c,r:r})];
+                if(cell && fill) cell.s = { ...(cell.s||{}), fill };
+            }
+        }
+        applyBorders(ws1, 0, sheet1.length-1, 0, 9);
+        XLSX.utils.book_append_sheet(wb, ws1, "出納帳");
+
+        // 収支計算書
+        const income={}, expense={};
+        viewData.forEach(d=>{
+            if(d.type==="収入") income[d.subject]=(income[d.subject]||0)+d.amount;
+            if(d.type==="支出") expense[d.subject]=(expense[d.subject]||0)+d.amount;
+        });
+
+        const incomeRows = Object.keys(income).map(k=>({ item:k, amt: income[k], note:"" }));
+        const expenseRows = Object.keys(expense).map(k=>({ item:k, budget:"", actual: expense[k], diff:"" }));
+        const maxRows = Math.max(incomeRows.length, expenseRows.length);
+        const sheet2 = [
+            [makeTitle("収支計算書"),"","","","","",""],
+            [],
+            ["収入","","","支出","","",""],
+            ["項目","金額","備考","項目","予算","実績","差額"]
+        ];
+        let tin=0, tout=0;
+        for(let i=0;i<maxRows;i++){
+            const ir = incomeRows[i] || {item:"", amt:"", note:""};
+            const er = expenseRows[i] || {item:"", budget:"", actual:"", diff:""};
+            if(typeof ir.amt === "number") tin += ir.amt;
+            if(typeof er.actual === "number") tout += er.actual;
+            sheet2.push([ir.item, ir.amt, ir.note, er.item, er.budget, er.actual, er.diff]);
+        }
+        sheet2.push(["合計", tin, "", "合計", "", tout, ""]);
+
+        const ws2 = XLSX.utils.aoa_to_sheet(sheet2);
+        ws2['!merges'] = [
+            { s:{r:0,c:0}, e:{r:0,c:6} }, // タイトル
+            { s:{r:2,c:0}, e:{r:2,c:2} }, // 収入ヘッダ
+            { s:{r:2,c:3}, e:{r:2,c:6} }  // 支出ヘッダ
+        ];
+        ws2['!cols'] = [{wch:18},{wch:14},{wch:16},{wch:18},{wch:10},{wch:14},{wch:14}];
+        ws2['!freeze'] = { xSplit:0, ySplit:4 };
+        ws2['!autofilter'] = { ref: `A4:G${sheet2.length}` };
+
+        // ヘッダ装飾
+        for(let c=0;c<7;c++){
+            const cellT = ws2[XLSX.utils.encode_cell({c:c,r:0})]; if(cellT) cellT.s = createCellStyle(true,"DDDDDD","center");
+        }
+        for(let c=0;c<7;c++){
+            const cell = ws2[XLSX.utils.encode_cell({c:c,r:2})]; if(cell) cell.s = createCellStyle(true,"FFFFCC","center");
+        }
+        for(let c=0;c<7;c++){
+            const cell = ws2[XLSX.utils.encode_cell({c:c,r:3})]; if(cell) cell.s = createCellStyle(true,"EEEEEE","center");
+        }
+
+        // 金額列書式＋交互色
+        for(let r=4;r<sheet2.length;r++){
+            const isOdd = (r % 2) === 0; // data rows start at 4, make striped
+            const fill = isOdd ? { fgColor:{ rgb:"F7F7F7" } } : null;
+            [1,5,6].forEach(c=>{
+                const cell = ws2[XLSX.utils.encode_cell({c:c,r:r})];
+                if(cell) cell.s = createCellStyle(false,null,"right",moneyFmt);
+            });
+            for(let c=0;c<7;c++){
+                const cell = ws2[XLSX.utils.encode_cell({c:c,r:r})];
+                if(cell && fill) cell.s = { ...(cell.s||{}), fill };
+            }
+        }
+        // 合計行装飾
+        const lastRow = sheet2.length-1;
+        for(let c=0;c<7;c++){
+            const cell = ws2[XLSX.utils.encode_cell({c:c,r:lastRow})]; if(cell) cell.s = createCellStyle(true,"DDDDDD","right",moneyFmt);
+        }
+        applyBorders(ws2, 0, sheet2.length-1, 0, 6);
+        XLSX.utils.book_append_sheet(wb, ws2, "収支決算書");
+
+        // 科目別
+        const subjectsMap={};
     viewData.forEach(d=>{ if(!subjectsMap[d.subject]) subjectsMap[d.subject]=[]; subjectsMap[d.subject].push(d); });
     Object.keys(subjectsMap).forEach(s=>{
-    const sh=[["日付","内容","金額","備考"]];
-    let sum=0;
-    subjectsMap[s].forEach(d=>{sum+=d.amount; sh.push([d.date,d.content,d.amount,d.note])});
-    sh.push(["小計","",sum,""]);
-    const ws = XLSX.utils.aoa_to_sheet(sh);
-    // ヘッダ装飾
-    for (let c=0;c<4;c++){
-        const cellH = ws[XLSX.utils.encode_cell({c:c,r:0})];
-        if (cellH) 
-            cellH.s = createCellStyle(true,"FFFFCC","center");
-        const lastR = sh.length-1;
-        const cellF = ws[XLSX.utils.encode_cell({c:c,r:lastR})];
-        if (cellF) 
-            cellF.s = createCellStyle(true,"DDDDDD","right",true);
-    }
+        const sh=[
+            [makeTitle(`${s} 明細`),"","",""],
+            ["日付","内容","金額","備考"]
+        ];
+        let sum=0;
+        subjectsMap[s].forEach(d=>{sum+=d.amount; sh.push([d.date,d.content,d.amount,d.note])});
+        sh.push(["小計","",sum,""]);
+        const ws = XLSX.utils.aoa_to_sheet(sh);
+        ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:3} }];
+        ws['!cols'] = [{wch:12},{wch:22},{wch:12},{wch:20}];
+        ws['!freeze'] = { xSplit:0, ySplit:2 };
+        ws['!autofilter'] = { ref: `A2:D${sh.length}` };
+        // ヘッダ装飾
+        for (let c=0;c<4;c++){
+            const cellT = ws[XLSX.utils.encode_cell({c:c,r:0})];
+            if (cellT) cellT.s = createCellStyle(true,"DDDDDD","center");
+            const cellH = ws[XLSX.utils.encode_cell({c:c,r:1})];
+            if (cellH) cellH.s = createCellStyle(true,"FFFFCC","center");
+            const lastR = sh.length-1;
+            const cellF = ws[XLSX.utils.encode_cell({c:c,r:lastR})];
+            if (cellF) cellF.s = createCellStyle(true,"DDDDDD","right",moneyFmt);
+        }
 
-    // 金額列右揃え＋カンマ
-    for (let r=1;r<sh.length-1;r++){
-        const cell = ws[XLSX.utils.encode_cell({c:2,r:r})];
-        if (cell)
-            cell.s = createCellStyle(false,null,"right",true);
-    }
-
-    XLSX.utils.book_append_sheet(wb, ws, s);
+        // 金額列右揃え＋カンマ＋交互色
+        for (let r=2;r<sh.length-1;r++){
+            const isOdd = (r % 2) === 1;
+            const fill = isOdd ? { fgColor:{ rgb:"F7F7F7" } } : null;
+            const cell = ws[XLSX.utils.encode_cell({c:2,r:r})];
+            if (cell) cell.s = createCellStyle(false,null,"right",moneyFmt);
+            for(let c=0;c<4;c++){
+                const cellRow = ws[XLSX.utils.encode_cell({c:c,r:r})];
+                if (cellRow && fill) cellRow.s = { ...(cellRow.s||{}), fill };
+            }
+        }
+        applyBorders(ws, 0, sh.length-1, 0, 3);
+        XLSX.utils.book_append_sheet(wb, ws, s);
     });
 
     XLSX.writeFile(wb,"会計.xlsx");
