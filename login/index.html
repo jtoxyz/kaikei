@@ -16,8 +16,9 @@
 
         localStorage.setItem("password", pass);
 
-        // GitHub Pagesなどサブパス配信でも動くように相対パスで戻る
-        window.location.href = "../index.html";
+        // login/ 配下でも、直リンクでも確実に本体へ戻す
+        const base = location.pathname.replace(/login\/?[^/]*$/, "");
+        window.location.href = `${base}index.html`;
       }
     </script>
   </head>
