@@ -42,6 +42,13 @@
       </select>
 
       <button onclick="render()">再表示</button>
+      <button id="bulkEditBtn" onclick="toggleBulkEditMode()">総編集モード</button>
+    </div>
+
+    <div id="bulkActions" style="display:none; margin-bottom:10px; padding:10px; background:#ffe; border:1px solid #dda;">
+      <button onclick="deleteSelected()">選択した項目を削除</button>
+      <button onclick="selectAllRows()">全選択</button>
+      <button onclick="deselectAllRows()">選択解除</button>
     </div>
 
     <div id="kaikei-panel">
@@ -65,25 +72,32 @@
       <div id="entry">
         <label for="date">日付: </label>
         <input type="date" id="date" />
-        
+
         <label for="subject">科目: </label>
         <select id="subject"></select>
-
-        <label for="account">口座: </label>
-        <select id="account">
-          <option value="現金">現金</option>
-          <option value="通帳">通帳</option>
-        </select>
+        <button onclick="addSubject()">科目を作成する</button>
 
         <label for="content">内容: </label>
         <input type="text" id="content" placeholder="内容" />
 
-        <label for="type">区分: </label>
-        <select id="type">
-          <option value="収入">収入</option>
-          <option value="支出">支出</option>
-          <option value="振替">振替</option>
-        </select>
+        <div class="inline-field">
+          <span class="label">区分: </span>
+          <label class="radio"><input type="radio" name="type" value="収入" checked>収入</label>
+          <label class="radio"><input type="radio" name="type" value="支出">支出</label>
+          <label class="radio"><input type="radio" name="type" value="振替">振替</label>
+        </div>
+
+        <div id="accountGroup" class="inline-field">
+          <span class="label">口座: </span>
+          <label class="radio"><input type="radio" name="account" value="現金" checked>現金</label>
+          <label class="radio"><input type="radio" name="account" value="通帳">通帳</label>
+        </div>
+
+        <div id="transferGroup" class="inline-field" style="display:none;">
+          <span class="label">振替方向: </span>
+          <label class="radio"><input type="radio" name="transferDirection" value="deposit" checked>預入 (現金→通帳)</label>
+          <label class="radio"><input type="radio" name="transferDirection" value="withdraw">引出 (通帳→現金)</label>
+        </div>
 
         <label for="amount">金額: </label>
         <input type="number" id="amount" placeholder="1000 (金額)" />
@@ -91,10 +105,9 @@
         <label for="note">備考: </label>
         <input type="text" id="note" placeholder="備考" />
 
-        <button onclick="save()">追加</button>
-        
-        <br>
-        <button onclick="addSubject()">科目を作成する</button>
+        <button id="saveBtn" onclick="save()">追加</button>
+        <button id="cancelEditBtn" style="display:none;" onclick="cancelEdit()">キャンセル</button>
+        <span id="editIndicator" class="edit-indicator" style="display:none;">編集中</span>
       </div>
     </div>
 
@@ -118,6 +131,9 @@
           <th>通帳収入</th>
           <th>通帳支出</th>
           <th>通帳残高</th>
+          <th>区分</th>
+          <th>口座</th>
+          <th>金額</th>
           <th>備考</th>
           <th>操作</th>
           </tr>

@@ -19,6 +19,28 @@ input, select, button {
     margin-right: 10px;
 }
 
+.inline-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0;
+}
+
+.inline-field .label {
+    font-weight: bold;
+}
+
+.radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.edit-indicator {
+    color: #c00;
+    font-weight: bold;
+}
+
 table {
     border-collapse: collapse;
     width: 100%;
