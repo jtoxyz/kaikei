@@ -721,3 +721,18 @@ function exportExcel(){
 
     XLSX.writeFile(wb,"会計.xlsx");
 }
+
+/** ページ初期化 */
+async function main() {
+    // サーバーからデータ読み込み
+    await loadData();
+    // UI初期化
+    updateSubjectSelect();
+    updateFilters();
+    render();
+    // パスワード未設定ならログインページへ
+    const pw = localStorage.getItem("password");
+    if (!pw) {
+        window.location.href = "./login/index.html";
+    }
+}
