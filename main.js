@@ -644,7 +644,6 @@ function exportExcel(){
         const maxRows = Math.max(incomeRows.length, expenseRows.length);
         const sheet2 = [
             [makeTitle("収支計算書"),"","","","","",""],
-            [],
             ["収入","","","支出","","",""],
             ["項目","金額","備考","項目","予算","実績","差額"]
         ];
@@ -661,27 +660,27 @@ function exportExcel(){
         const ws2 = XLSX.utils.aoa_to_sheet(sheet2);
         ws2['!merges'] = [
             { s:{r:0,c:0}, e:{r:0,c:6} }, // タイトル
-            { s:{r:2,c:0}, e:{r:2,c:2} }, // 収入ヘッダ
-            { s:{r:2,c:3}, e:{r:2,c:6} }  // 支出ヘッダ
+            { s:{r:1,c:0}, e:{r:1,c:2} }, // 収入ヘッダ
+            { s:{r:1,c:3}, e:{r:1,c:6} }  // 支出ヘッダ
         ];
         ws2['!cols'] = [{wch:18},{wch:14},{wch:16},{wch:18},{wch:10},{wch:14},{wch:14}];
-        ws2['!freeze'] = { xSplit:0, ySplit:4 };
-        ws2['!autofilter'] = { ref: `A4:G${sheet2.length}` };
+        ws2['!freeze'] = { xSplit:0, ySplit:3 };
+        ws2['!autofilter'] = { ref: `A3:G${sheet2.length}` };
 
         // ヘッダ装飾
         for(let c=0;c<7;c++){
             const cellT = ws2[XLSX.utils.encode_cell({c:c,r:0})]; if(cellT) cellT.s = createCellStyle(true,"DDDDDD","center");
         }
         for(let c=0;c<7;c++){
-            const cell = ws2[XLSX.utils.encode_cell({c:c,r:2})]; if(cell) cell.s = createCellStyle(true,"FFFFCC","center");
+            const cell = ws2[XLSX.utils.encode_cell({c:c,r:1})]; if(cell) cell.s = createCellStyle(true,"FFFFCC","center");
         }
         for(let c=0;c<7;c++){
-            const cell = ws2[XLSX.utils.encode_cell({c:c,r:3})]; if(cell) cell.s = createCellStyle(true,"EEEEEE","center");
+            const cell = ws2[XLSX.utils.encode_cell({c:c,r:2})]; if(cell) cell.s = createCellStyle(true,"EEEEEE","center");
         }
 
         // 金額列書式＋交互色
-        for(let r=4;r<sheet2.length;r++){
-            const isOdd = (r % 2) === 0; // data rows start at 4, make striped
+        for(let r=3;r<sheet2.length;r++){
+            const isOdd = (r % 2) === 0; // data rows start at 3, make striped
             const fill = isOdd ? { fgColor:{ rgb:"F7F7F7" } } : null;
             [1,5,6].forEach(c=>{
                 const cell = ws2[XLSX.utils.encode_cell({c:c,r:r})];
@@ -698,7 +697,7 @@ function exportExcel(){
             const cell = ws2[XLSX.utils.encode_cell({c:c,r:lastRow})]; if(cell) cell.s = createCellStyle(true,"DDDDDD","right",moneyFmt);
         }
         applyBorders(ws2, 0, sheet2.length-1, 0, 6);
-        XLSX.utils.book_append_sheet(wb, ws2, "収支決算書");
+        XLSX.utils.book_append_sheet(wb, ws2, "収支計算書");
 
         // 科目別
         const subjectsMap={};
