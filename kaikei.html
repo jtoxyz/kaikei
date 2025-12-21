@@ -2,6 +2,15 @@
 <html lang="ja">
     <head>
         <meta charset="UTF-8">
+        <script>
+          // ログイン確認：パスワードが未設定なら login/ へリダイレクト
+          if (!localStorage.getItem("password")) {
+            window.location.href = "./login/index.html";
+          } else {
+            // パスワード設定済みなら index.html へリダイレクト
+            window.location.href = "./";
+          }
+        </script>
         <meta http-equiv="refresh" content="3; URL=./">
     </head>
     <p>
