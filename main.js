@@ -8,7 +8,10 @@ let selectedRows = new Set();
 
 async function saveData() {
     const pw = localStorage.getItem("password");
-    if (!pw) return; // パスワード未設定時はリモート保存しない
+    if (!pw) {
+        console.log('[saveData] パスワード未設定');
+        return;
+    }
     const payload = {
         kaikei: localStorage.getItem("kaikei"),
         subjects: localStorage.getItem("subjects"),
@@ -16,20 +19,36 @@ async function saveData() {
         startBank: localStorage.getItem("startBank"),
     }
     try {
-        await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, {
+        console.log('[saveData] サーバーに保存中...', payload);
+        const res = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, {
             method: "POST",
             body: JSON.stringify(payload),
         });
-    } catch (_) { /* 通信失敗は無視（ローカルは保持） */ }
+        if (res.ok) {
+            console.log('[saveData] 保存成功');
+        } else {
+            console.error('[saveData] 保存失敗:', res.status, await res.text());
+        }
+    } catch (e) {
+        console.error('[saveData] 通信エラー:', e);
+    }
 }
 
 async function loadData() {
     const pw = localStorage.getItem("password");
-    if (!pw) return; // パスワード未設定なら同期しない（ローカル優先）
+    if (!pw) {
+        console.log('[loadData] パスワード未設定');
+        return;
+    }
     try {
+        console.log('[loadData] サーバーから読み込み中...');
         const res = await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, { method: "GET" });
-        if (!res.ok) return;
+        if (!res.ok) {
+            console.error('[loadData] 読み込み失敗:', res.status, await res.text());
+            return;
+        }
         const obj = await res.json();
+        console.log('[loadData] 受信データ:', obj);
         // 有効な値のみ上書きしてローカルの空データ上書きを防止
         if (obj && typeof obj.kaikei === 'string') localStorage.setItem("kaikei", obj.kaikei);
         if (obj && typeof obj.subjects === 'string') localStorage.setItem("subjects", obj.subjects);
@@ -40,11 +59,21 @@ async function loadData() {
         subjects = JSON.parse(localStorage.getItem("subjects")) || [];
         startCash = Number(localStorage.getItem("startCash") || 0);
         startBank = Number(localStorage.getItem("startBank") || 0);
-    } catch (_) {
-        // 失敗時はローカルのまま使う
+        console.log('[loadData] 読み込み完了');
+    } catch (e) {
+        console.error('[loadData] 通信エラー:', e);
     }
 }
+// ラジオボタンのヘルパー関数
+function getSelectedRadioValue(name) {
+    const radio = document.querySelector(`input[name="${name}"]:checked`);
+    return radio ? radio.value : null;
+}
 
+function setRadioValue(name, value) {
+    const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (radio) radio.checked = true;
+}
 function save(){
     const sub = document.getElementById("subject").value;
     const typeVal = getSelectedRadioValue("type") || "収入";
@@ -86,23 +115,6 @@ function save(){
     render();
 
     clearForm();
-}
-
-async function saveData() {
-    const pw = localStorage.getItem("password");
-    if (!pw) return; // パスワード未設定時はリモート保存しない
-    const payload = {
-        kaikei: localStorage.getItem("kaikei"),
-        subjects: localStorage.getItem("subjects"),
-        startCash: localStorage.getItem("startCash"),
-        startBank: localStorage.getItem("startBank"),
-    }
-    try {
-        await fetch("https://kaikei.osu-gakkenpo.workers.dev/?pw=" + pw, {
-            method: "POST",
-            body: JSON.stringify(payload),
-        });
-    } catch (_) { /* 通信失敗は無視（ローカルは保持） */ }
 }
 
 function startEdit(i){
@@ -754,4 +766,9 @@ async function main() {
     if (!pw) {
         window.location.href = "./login/index.html";
     }
+    // 30秒ごとに自動でサーバーから最新データを取得
+    setInterval(async () => {
+        await loadData();
+        render();
+    }, 30000);
 }
