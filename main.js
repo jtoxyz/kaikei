@@ -472,20 +472,25 @@ function exportBackup(){
 /** バックアップJSONを読み込み復元 */
 async function importBackup(ev){
     const file = ev.target.files?.[0];
+    console.log('[importBackup] ファイル選択:', file?.name);
     if (!file) return;
     const rd = new FileReader();
     rd.onload = async () => {
+        console.log('[importBackup] ファイル読み込み開始');
         try {
             const obj = JSON.parse(rd.result);
+            console.log('[importBackup] JSON解析成功:', obj);
             if (obj.kaikei) { data = obj.kaikei; localStorage.setItem('kaikei', JSON.stringify(data)); }
             if (obj.subjects) { subjects = obj.subjects; localStorage.setItem('subjects', JSON.stringify(subjects)); }
             if (obj.startCash!=null) { startCash = Number(obj.startCash); localStorage.setItem('startCash', String(startCash)); }
             if (obj.startBank!=null) { startBank = Number(obj.startBank); localStorage.setItem('startBank', String(startBank)); }
             updateSubjectSelect();
             render();
+            console.log('[importBackup] saveData実行中...');
             await saveData(); // サーバーに同期（完全に保存されるまで待つ）
             alert('復元してサーバーに保存しました');
         } catch(e){
+            console.error('[importBackup] エラー:', e);
             alert('復元に失敗しました: '+ e);
         }
     };
