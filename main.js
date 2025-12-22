@@ -469,6 +469,7 @@ function importBackup(ev){
             if (obj.startBank!=null) { startBank = Number(obj.startBank); localStorage.setItem('startBank', String(startBank)); }
             updateSubjectSelect();
             render();
+            saveData(); // サーバーに同期
             alert('復元しました');
         } catch(e){
             alert('復元に失敗しました: '+ e);
