@@ -74,6 +74,20 @@ function setRadioValue(name, value) {
     const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
     if (radio) radio.checked = true;
 }
+
+function updateAccountVisibility() {
+    const typeVal = getSelectedRadioValue("type");
+    const accountGroup = document.getElementById("accountGroup");
+    const transferGroup = document.getElementById("transferGroup");
+    if (typeVal === "振替") {
+        accountGroup.style.display = "none";
+        transferGroup.style.display = "block";
+    } else {
+        accountGroup.style.display = "block";
+        transferGroup.style.display = "none";
+    }
+}
+
 function save(){
     const sub = document.getElementById("subject").value;
     const typeVal = getSelectedRadioValue("type") || "収入";
@@ -456,11 +470,11 @@ function exportBackup(){
 }
 
 /** バックアップJSONを読み込み復元 */
-function importBackup(ev){
+async function importBackup(ev){
     const file = ev.target.files?.[0];
     if (!file) return;
     const rd = new FileReader();
-    rd.onload = () => {
+    rd.onload = async () => {
         try {
             const obj = JSON.parse(rd.result);
             if (obj.kaikei) { data = obj.kaikei; localStorage.setItem('kaikei', JSON.stringify(data)); }
@@ -469,8 +483,8 @@ function importBackup(ev){
             if (obj.startBank!=null) { startBank = Number(obj.startBank); localStorage.setItem('startBank', String(startBank)); }
             updateSubjectSelect();
             render();
-            saveData(); // サーバーに同期
-            alert('復元しました');
+            await saveData(); // サーバーに同期（完全に保存されるまで待つ）
+            alert('復元してサーバーに保存しました');
         } catch(e){
             alert('復元に失敗しました: '+ e);
         }
